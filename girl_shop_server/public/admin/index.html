@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Girl Shop 后台管理系统</title>
+    <link rel="stylesheet" href="/admin/styles.css" />
+  </head>
+  <body>
+    <div id="login-view" class="login-page">
+      <div class="login-card">
+        <div class="login-brand">
+          <span class="brand-tag">MongoDB Admin</span>
+          <h1>Girl Shop 后台管理系统</h1>
+          <p>商品、用户、订单、分类和轮播内容统一管理</p>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>
+            <span>账号</span>
+            <input type="text" name="username" value="admin" placeholder="请输入管理员账号" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input type="password" name="password" value="Admin@123456" placeholder="请输入管理员密码" required />
+          </label>
+          <button type="submit">登录后台</button>
+        </form>
+        <div class="login-tips">
+          <div>默认账号：`admin`</div>
+          <div>默认密码：`Admin@123456`</div>
+          <div>数据库：MongoDB，连接串通过 `MONGODB_URI` 配置</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="app-view" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <h2>Girl Shop Admin</h2>
+          <p id="sidebar-shop-name">商业后台演示版</p>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-view="dashboard">运营概览</button>
+          <button class="nav-item" data-view="products">商品管理</button>
+          <button class="nav-item" data-view="users">用户管理</button>
+          <button class="nav-item" data-view="categories">分类管理</button>
+          <button class="nav-item" data-view="orders">订单管理</button>
+          <button class="nav-item" data-view="banners">轮播管理</button>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <h1 id="page-title">运营概览</h1>
+            <p id="page-subtitle">查看后台经营数据和最近订单</p>
+          </div>
+          <div class="topbar-actions">
+            <div class="profile-box">
+              <strong id="admin-name">管理员</strong>
+              <span id="admin-role">super_admin</span>
+            </div>
+            <button id="logout-button" class="secondary-button">退出登录</button>
+          </div>
+        </header>
+
+        <section id="dashboard-view" class="content-view active">
+          <div id="overview-cards" class="card-grid"></div>
+          <div class="panel-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>最近订单</h3>
+              </div>
+              <div id="recent-orders"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>热销商品</h3>
+              </div>
+              <div id="top-products"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="products-view" class="content-view">
+          <div class="toolbar">
+            <form id="product-filter-form" class="toolbar-form">
+              <input type="text" name="keyword" placeholder="搜索商品名称 / ID" />
+              <select name="status" id="product-filter-status">
+                <option value="">全部状态</option>
+              </select>
+              <select name="categoryId" id="product-filter-category">
+                <option value="">全部分类</option>
+              </select>
+              <button type="submit">筛选</button>
+            </form>
+            <button id="create-product-button">新增商品</button>
+          </div>
+          <div id="products-table" class="table-wrapper"></div>
+        </section>
+
+        <section id="users-view" class="content-view">
+          <div class="toolbar">
+            <form id="user-filter-form" class="toolbar-form">
+              <input type="text" name="keyword" placeholder="搜索昵称 / 手机号 / 邮箱" />
+              <select name="status" id="user-filter-status">
+                <option value="">全部状态</option>
+              </select>
+              <button type="submit">筛选</button>
+            </form>
+            <button id="create-user-button">新增用户</button>
+          </div>
+          <div id="users-table" class="table-wrapper"></div>
+        </section>
+
+        <section id="categories-view" class="content-view">
+          <div class="toolbar">
+            <div class="toolbar-form toolbar-form-static">
+              <span>维护商品一级分类和二级分类</span>
+            </div>
+            <button id="create-category-button">新增分类</button>
+          </div>
+          <div id="categories-table" class="table-wrapper"></div>
+        </section>
+
+        <section id="orders-view" class="content-view">
+          <div class="toolbar">
+            <form id="order-filter-form" class="toolbar-form">
+              <input type="text" name="keyword" placeholder="搜索订单号 / 用户名" />
+              <select name="status" id="order-filter-status">
+                <option value="">全部状态</option>
+              </select>
+              <button type="submit">筛选</button>
+            </form>
+          </div>
+          <div id="orders-table" class="table-wrapper"></div>
+        </section>
+
+        <section id="banners-view" class="content-view">
+          <div class="toolbar">
+            <div class="toolbar-form toolbar-form-static">
+              <span>维护首页轮播图与前台展示顺序</span>
+            </div>
+            <button id="create-banner-button">新增轮播</button>
+          </div>
+          <div id="banners-table" class="table-wrapper"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h3 id="modal-title">编辑</h3>
+          <button id="modal-close" class="icon-button" type="button">×</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+      </div>
+    </div>
+
+    <script src="/admin/app.js"></script>
+  </body>
+</html>
