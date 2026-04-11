@@ -9,6 +9,7 @@ const state = {
   categories: [],
   orders: [],
   banners: [],
+  operationLogs: [],
   currentView: "dashboard",
 };
 
@@ -20,6 +21,7 @@ const viewTitles = {
   categories: ["分类管理", "维护商城一级分类和二级分类"],
   orders: ["订单管理", "查看订单并调整履约状态"],
   banners: ["轮播管理", "管理首页轮播图、排序和发布状态"],
+  "operation-logs": ["操作日志", "查看后台关键操作、鉴权事件和审计记录"],
 };
 
 // 把页面上需要频繁操作的 DOM 节点提前缓存，减少重复查询。
@@ -42,6 +44,7 @@ const elements = {
   categoriesTable: document.getElementById("categories-table"),
   ordersTable: document.getElementById("orders-table"),
   bannersTable: document.getElementById("banners-table"),
+  operationLogsTable: document.getElementById("operation-logs-table"),
   modal: document.getElementById("modal"),
   modalTitle: document.getElementById("modal-title"),
   modalBody: document.getElementById("modal-body"),
@@ -49,6 +52,7 @@ const elements = {
   productFilterForm: document.getElementById("product-filter-form"),
   userFilterForm: document.getElementById("user-filter-form"),
   orderFilterForm: document.getElementById("order-filter-form"),
+  operationLogFilterForm: document.getElementById("operation-log-filter-form"),
 };
 
 // 对字符串做 HTML 转义，防止把用户输入直接插进模板时破坏页面结构。
@@ -75,7 +79,9 @@ async function request(path, options = {}) {
   if (state.token) {
     config.headers.Authorization = `Bearer ${state.token}`;
   }
-  if (config.body && typeof config.body !== "string") {
+  if (config.body instanceof FormData) {
+    // FormData 让浏览器自动补 boundary，不能手动转 JSON。
+  } else if (config.body && typeof config.body !== "string") {
     config.headers["Content-Type"] = "application/json";
     config.body = JSON.stringify(config.body);
   }
@@ -460,6 +466,198 @@ function renderBanners() {
   `;
 }
 
+// 渲染操作日志表格，帮助运营和开发快速排查关键操作链路。
+function renderOperationLogs() {
+  if (!state.operationLogs.length) {
+    elements.operationLogsTable.innerHTML = renderEmpty("暂无操作日志数据");
+    return;
+  }
+
+  elements.operationLogsTable.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>时间 / 结果</th>
+          <th>模块 / 动作</th>
+          <th>操作人</th>
+          <th>目标对象</th>
+          <th>请求信息</th>
+          <th>说明</th>
+          <th>详情</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.operationLogs
+          .map(
+            (log) => `
+              <tr>
+                <td>
+                  <strong>${escapeHtml(log.createdAt)}</strong>
+                  <div style="margin-top:8px;">${statusBadge(log.result)}</div>
+                  <div style="margin-top:8px;color:#64748b;">HTTP ${escapeHtml(log.statusCode || "-")}</div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(log.module || "-")}</strong>
+                  <div style="margin-top:6px;color:#64748b;">${escapeHtml(log.action || "-")}</div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(log.actorName || "-")}</strong>
+                  <div style="margin-top:6px;color:#64748b;">${escapeHtml(log.actorType || "-")} / ${escapeHtml(
+              log.actorId || "-"
+            )}</div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(log.targetName || "-")}</strong>
+                  <div style="margin-top:6px;color:#64748b;">${escapeHtml(log.targetType || "-")} / ${escapeHtml(
+              log.targetId || "-"
+            )}</div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(log.method || "-")}</strong>
+                  <div style="margin-top:6px;color:#64748b;word-break:break-all;">${escapeHtml(log.path || "-")}</div>
+                  <div style="margin-top:6px;color:#94a3b8;">IP: ${escapeHtml(log.ip || "-")}</div>
+                </td>
+                <td>
+                  <strong>${escapeHtml(log.message || "-")}</strong>
+                  <div style="margin-top:6px;color:#64748b;word-break:break-all;">${escapeHtml(
+                    JSON.stringify(log.detail || {})
+                  )}</div>
+                </td>
+                <td>
+                  <button class="action-button" data-action="view-operation-log" data-id="${escapeHtml(log.id)}">详情</button>
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+// 打开操作日志详情弹窗，展示基础信息、请求明细和返回结果。
+function openOperationLogDetailModal(logId) {
+  const log = state.operationLogs.find((item) => item.id === logId);
+  if (!log) {
+    notify("日志不存在或已被刷新");
+    return;
+  }
+
+  openModal(
+    "操作日志详情",
+    `
+      <div class="log-detail-grid">
+        <div class="log-detail-card">
+          <h4>基础信息</h4>
+          <div class="log-detail-item"><strong>日志 ID：</strong><span>${escapeHtml(log.id)}</span></div>
+          <div class="log-detail-item"><strong>时间：</strong><span>${escapeHtml(log.createdAt || "-")}</span></div>
+          <div class="log-detail-item"><strong>结果：</strong><span>${escapeHtml(log.result || "-")}</span></div>
+          <div class="log-detail-item"><strong>状态码：</strong><span>${escapeHtml(log.statusCode || "-")}</span></div>
+          <div class="log-detail-item"><strong>模块：</strong><span>${escapeHtml(log.module || "-")}</span></div>
+          <div class="log-detail-item"><strong>动作：</strong><span>${escapeHtml(log.action || "-")}</span></div>
+        </div>
+        <div class="log-detail-card">
+          <h4>操作人与目标</h4>
+          <div class="log-detail-item"><strong>操作人：</strong><span>${escapeHtml(log.actorName || "-")}</span></div>
+          <div class="log-detail-item"><strong>操作人类型：</strong><span>${escapeHtml(log.actorType || "-")}</span></div>
+          <div class="log-detail-item"><strong>操作人 ID：</strong><span>${escapeHtml(log.actorId || "-")}</span></div>
+          <div class="log-detail-item"><strong>目标对象：</strong><span>${escapeHtml(log.targetName || "-")}</span></div>
+          <div class="log-detail-item"><strong>目标类型：</strong><span>${escapeHtml(log.targetType || "-")}</span></div>
+          <div class="log-detail-item"><strong>目标 ID：</strong><span>${escapeHtml(log.targetId || "-")}</span></div>
+        </div>
+        <div class="log-detail-card full">
+          <h4>请求信息</h4>
+          <div class="log-detail-item"><strong>请求方法：</strong><span>${escapeHtml(log.method || "-")}</span></div>
+          <div class="log-detail-item"><strong>请求路径：</strong><span>${escapeHtml(log.path || "-")}</span></div>
+          <div class="log-detail-item"><strong>IP：</strong><span>${escapeHtml(log.ip || "-")}</span></div>
+          <div class="log-detail-item"><strong>User-Agent：</strong><span>${escapeHtml(log.userAgent || "-")}</span></div>
+          <div class="log-detail-item"><strong>说明：</strong><span>${escapeHtml(log.message || "-")}</span></div>
+        </div>
+        <div class="log-detail-card full">
+          <h4>请求详情</h4>
+          <pre class="log-detail-json">${escapeHtml(JSON.stringify(log.detail || {}, null, 2))}</pre>
+        </div>
+        <div class="log-detail-card full">
+          <h4>返回详情</h4>
+          <pre class="log-detail-json">${escapeHtml(JSON.stringify(log.responseData ?? null, null, 2))}</pre>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary-button" data-action="close-modal">关闭</button>
+      </div>
+    `
+  );
+}
+
+// 上传单张图片并返回后端保存后的路径信息。
+async function uploadImageFile(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+  return request("/api/admin/upload-image", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+// 绑定单图上传：用于封面图、分类图、轮播图等场景。
+function bindSingleImageUpload(fileInputId, pathInputId, previewId) {
+  const fileInput = document.getElementById(fileInputId);
+  const pathInput = document.getElementById(pathInputId);
+  const preview = previewId ? document.getElementById(previewId) : null;
+  if (!fileInput || !pathInput) {
+    return;
+  }
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) {
+      return;
+    }
+    try {
+      const result = await uploadImageFile(file);
+      pathInput.value = result.path;
+      if (preview) {
+        preview.src = result.url;
+      }
+      notify("图片上传成功");
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      fileInput.value = "";
+    }
+  });
+}
+
+// 绑定多图上传：用于商品图库，上传后把路径按换行追加到文本域。
+function bindGalleryUpload(fileInputId, textareaId) {
+  const fileInput = document.getElementById(fileInputId);
+  const textarea = document.getElementById(textareaId);
+  if (!fileInput || !textarea) {
+    return;
+  }
+
+  fileInput.addEventListener("change", async () => {
+    const files = Array.from(fileInput.files || []);
+    if (!files.length) {
+      return;
+    }
+    try {
+      const results = [];
+      for (const file of files) {
+        results.push(await uploadImageFile(file));
+      }
+      const current = textarea.value.trim();
+      const nextText = results.map((item) => item.path).join("\n");
+      textarea.value = current ? `${current}\n${nextText}` : nextText;
+      notify(`已上传 ${results.length} 张图片`);
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      fileInput.value = "";
+    }
+  });
+}
+
 // 拉取仪表盘数据并刷新概览区域。
 async function loadOverview() {
   state.overview = await request("/api/admin/overview");
@@ -503,6 +701,15 @@ async function loadOrders() {
 async function loadBanners() {
   state.banners = await request("/api/admin/banners");
   renderBanners();
+}
+
+// 按筛选条件加载操作日志列表。
+async function loadOperationLogs() {
+  const formData = new FormData(elements.operationLogFilterForm);
+  const params = new URLSearchParams();
+  formData.forEach((value, key) => value && params.append(key, value));
+  state.operationLogs = await request(`/api/admin/operation-logs?${params.toString()}`);
+  renderOperationLogs();
 }
 
 // 打开通用弹窗并填充标题、内容。
@@ -560,7 +767,15 @@ function productForm(product) {
         )}" /></label>
         <label><span>库存</span><input name="stock" type="number" value="${escapeHtml(product?.stock || "")}" /></label>
         <label><span>销量</span><input name="sales" type="number" value="${escapeHtml(product?.sales || "")}" /></label>
-        <label><span>封面图</span><input name="cover" value="${escapeHtml(product?.cover || "")}" required /></label>
+        <label class="full">
+          <span>封面图</span>
+          <input id="product-cover-input" name="cover" value="${escapeHtml(product?.cover || "")}" required />
+          <div class="upload-field">
+            <input id="product-cover-file" type="file" accept="image/*" />
+            <span class="upload-tip">选择图片后自动上传并回填路径</span>
+          </div>
+          <img id="product-cover-preview" class="upload-preview" src="${escapeHtml(product?.cover || "")}" alt="封面预览" />
+        </label>
         <label><span>状态</span>
           <select name="status">
             ${state.options.productStatusOptions
@@ -573,9 +788,14 @@ function productForm(product) {
         <label class="full"><span>标签，使用逗号分隔</span><input name="tags" value="${escapeHtml(
           (product?.tags || []).join(",")
         )}" /></label>
-        <label class="full"><span>图库，使用换行或逗号分隔</span><textarea name="gallery" rows="4">${escapeHtml(
-          (product?.gallery || []).join("\n")
-        )}</textarea></label>
+        <label class="full">
+          <span>图库，使用换行或逗号分隔</span>
+          <textarea id="product-gallery-textarea" name="gallery" rows="4">${escapeHtml((product?.gallery || []).join("\n"))}</textarea>
+          <div class="upload-field">
+            <input id="product-gallery-file" type="file" accept="image/*" multiple />
+            <span class="upload-tip">可多选上传，上传后自动追加到图库路径</span>
+          </div>
+        </label>
         <label class="full"><span>商品描述</span><textarea name="description" rows="4">${escapeHtml(
           product?.description || ""
         )}</textarea></label>
@@ -638,7 +858,15 @@ function categoryForm(category) {
     <form id="category-modal-form" class="modal-form">
       <div class="form-grid">
         <label><span>分类名称</span><input name="name" value="${escapeHtml(category?.name || "")}" required /></label>
-        <label><span>分类图片</span><input name="image" value="${escapeHtml(category?.image || "")}" required /></label>
+        <label class="full">
+          <span>分类图片</span>
+          <input id="category-image-input" name="image" value="${escapeHtml(category?.image || "")}" required />
+          <div class="upload-field">
+            <input id="category-image-file" type="file" accept="image/*" />
+            <span class="upload-tip">选择图片后自动上传并回填路径</span>
+          </div>
+          <img id="category-image-preview" class="upload-preview" src="${escapeHtml(category?.image || "")}" alt="分类预览" />
+        </label>
         <label class="full"><span>二级分类，使用逗号分隔</span><textarea name="children" rows="4">${escapeHtml(
           (category?.children || []).map((item) => item.name).join(",")
         )}</textarea></label>
@@ -667,9 +895,15 @@ function bannerForm(banner) {
               .join("")}
           </select>
         </label>
-        <label class="full"><span>轮播图片</span><input name="image" value="${escapeHtml(
-          banner?.image || ""
-        )}" required /></label>
+        <label class="full">
+          <span>轮播图片</span>
+          <input id="banner-image-input" name="image" value="${escapeHtml(banner?.image || "")}" required />
+          <div class="upload-field">
+            <input id="banner-image-file" type="file" accept="image/*" />
+            <span class="upload-tip">选择图片后自动上传并回填路径</span>
+          </div>
+          <img id="banner-image-preview" class="upload-preview wide" src="${escapeHtml(banner?.image || "")}" alt="轮播预览" />
+        </label>
         <label><span>排序</span><input name="sort" type="number" value="${escapeHtml(banner?.sort || 1)}" /></label>
         <label><span>状态</span>
           <select name="status">
@@ -707,6 +941,8 @@ function openProductModal(productId) {
   const product = state.products.find((item) => item.id === productId);
   openModal(product ? "编辑商品" : "新增商品", productForm(product));
   bindProductCategoryChange();
+  bindSingleImageUpload("product-cover-file", "product-cover-input", "product-cover-preview");
+  bindGalleryUpload("product-gallery-file", "product-gallery-textarea");
 
   document.getElementById("product-modal-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -753,6 +989,7 @@ function openUserModal(userId) {
 function openCategoryModal(categoryId) {
   const category = state.categories.find((item) => item.id === categoryId);
   openModal(category ? "编辑分类" : "新增分类", categoryForm(category));
+  bindSingleImageUpload("category-image-file", "category-image-input", "category-image-preview");
   document.getElementById("category-modal-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.target).entries());
@@ -775,6 +1012,7 @@ function openCategoryModal(categoryId) {
 function openBannerModal(bannerId) {
   const banner = state.banners.find((item) => item.id === bannerId);
   openModal(banner ? "编辑轮播" : "新增轮播", bannerForm(banner));
+  bindSingleImageUpload("banner-image-file", "banner-image-input", "banner-image-preview");
   document.getElementById("banner-modal-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.target).entries());
@@ -797,7 +1035,7 @@ function openBannerModal(bannerId) {
 async function reloadAllCoreData() {
   state.options = await request("/api/admin/options");
   fillSelectOptions();
-  await Promise.all([loadOverview(), loadProducts(), loadUsers(), loadCategories(), loadOrders(), loadBanners()]);
+  await Promise.all([loadOverview(), loadProducts(), loadUsers(), loadCategories(), loadOrders(), loadBanners(), loadOperationLogs()]);
 }
 
 // 退出登录：
@@ -830,7 +1068,7 @@ async function bootstrap() {
     elements.adminRole.textContent = state.profile.role;
     elements.sidebarShopName.textContent = "商业后台演示版";
     fillSelectOptions();
-    await Promise.all([loadOverview(), loadProducts(), loadUsers(), loadCategories(), loadOrders(), loadBanners()]);
+    await Promise.all([loadOverview(), loadProducts(), loadUsers(), loadCategories(), loadOrders(), loadBanners(), loadOperationLogs()]);
     elements.loginView.classList.add("hidden");
     elements.appView.classList.remove("hidden");
     setView("dashboard");
@@ -873,6 +1111,10 @@ document.body.addEventListener("click", async (event) => {
 
   if (action === "close-modal") {
     closeModal();
+    return;
+  }
+  if (action === "view-operation-log") {
+    openOperationLogDetailModal(id);
     return;
   }
   if (action === "edit-product") {
@@ -990,6 +1232,11 @@ elements.userFilterForm.addEventListener("submit", async (event) => {
 elements.orderFilterForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await loadOrders();
+});
+
+elements.operationLogFilterForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await loadOperationLogs();
 });
 
 // 新增按钮直接打开各自的编辑弹窗。

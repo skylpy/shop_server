@@ -389,6 +389,7 @@ function createSeedData() {
         orderCount: 5,
         registeredAt: "2026-01-03 10:00:00",
         lastLoginAt: "2026-04-08 09:20:00",
+        passwordHash: hashText("User@123456"),
       },
       {
         id: "U1002",
@@ -402,6 +403,7 @@ function createSeedData() {
         orderCount: 9,
         registeredAt: "2025-11-18 14:35:00",
         lastLoginAt: "2026-04-07 20:10:00",
+        passwordHash: hashText("User@123456"),
       },
       {
         id: "U1003",
@@ -415,6 +417,7 @@ function createSeedData() {
         orderCount: 1,
         registeredAt: "2026-02-11 08:22:00",
         lastLoginAt: "2026-03-26 17:02:00",
+        passwordHash: hashText("User@123456"),
       },
       {
         id: "U1004",
@@ -428,6 +431,7 @@ function createSeedData() {
         orderCount: 4,
         registeredAt: "2025-12-20 12:12:00",
         lastLoginAt: "2026-04-08 08:48:00",
+        passwordHash: hashText("User@123456"),
       },
     ],
     // 订单演示数据。
@@ -483,6 +487,8 @@ function createSeedData() {
         items: [{ productId: "008", productName: "夏季新款短袖圆领紧身小黑超短裙开叉包臀性感连衣裙夜店女装", quantity: 1, price: 666.88 }],
       },
     ],
+    // 操作日志与审计记录，初始化为空，由系统运行时自动写入。
+    operationLogs: [],
   };
 }
 

@@ -46,6 +46,7 @@
           <button class="nav-item" data-view="categories">分类管理</button>
           <button class="nav-item" data-view="orders">订单管理</button>
           <button class="nav-item" data-view="banners">轮播管理</button>
+          <button class="nav-item" data-view="operation-logs">操作日志</button>
         </nav>
       </aside>
 
@@ -144,6 +145,43 @@
             <button id="create-banner-button">新增轮播</button>
           </div>
           <div id="banners-table" class="table-wrapper"></div>
+        </section>
+
+        <section id="operation-logs-view" class="content-view">
+          <div class="toolbar">
+            <form id="operation-log-filter-form" class="toolbar-form">
+              <input type="text" name="keyword" placeholder="搜索模块 / 操作人 / 目标 / 路径" />
+              <select name="module" id="operation-log-filter-module">
+                <option value="">全部模块</option>
+                <option value="admin_auth">后台鉴权</option>
+                <option value="user_auth">商城鉴权</option>
+                <option value="product">商品</option>
+                <option value="user">用户</option>
+                <option value="category">分类</option>
+                <option value="order">订单</option>
+                <option value="banner">轮播</option>
+                <option value="media">图片上传</option>
+              </select>
+              <select name="result" id="operation-log-filter-result">
+                <option value="">全部结果</option>
+                <option value="success">成功</option>
+                <option value="failure">失败</option>
+              </select>
+              <select name="actorType" id="operation-log-filter-actor-type">
+                <option value="">全部身份</option>
+                <option value="admin">管理员</option>
+                <option value="user">商城用户</option>
+              </select>
+              <select name="limit" id="operation-log-filter-limit">
+                <option value="20">最近 20 条</option>
+                <option value="50" selected>最近 50 条</option>
+                <option value="100">最近 100 条</option>
+                <option value="200">最近 200 条</option>
+              </select>
+              <button type="submit">筛选</button>
+            </form>
+          </div>
+          <div id="operation-logs-table" class="table-wrapper"></div>
         </section>
       </main>
     </div>
